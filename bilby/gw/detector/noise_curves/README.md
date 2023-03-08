@@ -14,7 +14,7 @@ https://dcc.ligo.org/LIGO-P1200087-v42/public
 https://dcc.ligo.org/LIGO-P1200087-v42/public
 
 ### Cosmic Explorer
-https://dcc.ligo.org/LIGO-P1600143/public
+https://dcc.cosmicexplorer.org/cgi-bin/DocDB/ListBy?.submit=Changes&maxdocs=50&days=180
 
 ### A+
 https://dcc.ligo.org/LIGO-T1500293
