@@ -1,6 +1,7 @@
 import unittest
 import os
 from shutil import rmtree
+from importlib.metadata import version
 
 import numpy as np
 import lal
@@ -8,6 +9,7 @@ import lalsimulation as lalsim
 from gwpy.timeseries import TimeSeries
 from gwpy.detector import Channel
 from scipy.stats import ks_2samp
+import pytest
 
 import bilby
 from bilby.gw import utils as gwutils
@@ -35,34 +37,6 @@ class TestGWUtils(unittest.TestCase):
         df = 0.1
         psd = gwutils.psd_from_freq_series(freq_data, df)
         self.assertTrue(np.all(psd == (freq_data * 2 * df ** 0.5) ** 2))
-
-    def test_time_delay_from_geocenter(self):
-        """
-        The difference in the two detector case is due to rounding error.
-        Different hardware gives different numbers in the last decimal place.
-        """
-        det1 = np.array([0.1, 0.2, 0.3])
-        det2 = np.array([0.1, 0.2, 0.5])
-        ra = 0.5
-        dec = 0.2
-        time = 10
-        self.assertEqual(gwutils.time_delay_geocentric(det1, det1, ra, dec, time), 0)
-        self.assertAlmostEqual(
-            gwutils.time_delay_geocentric(det1, det2, ra, dec, time),
-            1.3253791114055397e-10,
-            14,
-        )
-
-    def test_get_polarization_tensor(self):
-        ra = 1
-        dec = 2.0
-        time = 10
-        psi = 0.1
-        for mode in ["plus", "cross", "breathing", "longitudinal", "x", "y"]:
-            p = gwutils.get_polarization_tensor(ra, dec, time, psi, mode)
-            self.assertEqual(p.shape, (3, 3))
-        with self.assertRaises(ValueError):
-            gwutils.get_polarization_tensor(ra, dec, time, psi, "not-a-mode")
 
     def test_inner_product(self):
         aa = np.array([1, 2, 3])
@@ -100,31 +74,44 @@ class TestGWUtils(unittest.TestCase):
         )
         self.assertEqual(mfsnr, 25.510869054168282)
 
+    @pytest.mark.skip(reason="GWOSC unstable: avoiding this test")
     def test_get_event_time(self):
+        from urllib3.exceptions import NewConnectionError
         events = [
             "GW150914",
-            "GW151012",
-            "GW151226",
             "GW170104",
-            "GW170608",
-            "GW170729",
-            "GW170809",
-            "GW170814",
-            "GW170817",
-            "GW170818",
-            "GW170823",
         ]
         for event in events:
-            self.assertTrue(isinstance(gwutils.get_event_time(event), float))
+            try:
+                self.assertTrue(isinstance(gwutils.get_event_time(event), float))
+            except NewConnectionError:
+                return
 
-        self.assertTrue(gwutils.get_event_time("GW010290") is None)
+        with self.assertRaises(ValueError):
+            gwutils.get_event_time("GW010290")
 
+    @pytest.mark.skipif(version("gwpy") < "3.0.8", reason="GWpy version < 3.0.8")
     def test_read_frame_file(self):
+        """
+        Test that reading a frame file works as expected
+        for a few conditions.
+
+        1. Reading without time limits returns the full data
+        2. Reading with time limits returns the expected data
+           (inclusive of start time if present, exclusive of end time)
+        3. Reading without the channel name provided finds a standard name
+        4. Reading without the channel with a non-standard name returns None.
+
+        Notes
+        =====
+        There was a longstanding bug in gwpy that we previously tested for
+        here, but this has been fixed in gwpy 3.0.8.
+        """
         start_time = 0
         end_time = 10
         channel = "H1:GDS-CALIB_STRAIN"
         N = 100
-        times = np.linspace(start_time, end_time, N)
+        times = np.linspace(start_time, end_time, N, endpoint=False)
         data = np.random.normal(0, 1, N)
         ts = TimeSeries(data=data, times=times, t0=0)
         ts.channel = Channel(channel)
@@ -136,8 +123,8 @@ class TestGWUtils(unittest.TestCase):
         strain = gwutils.read_frame_file(
             filename, start_time=None, end_time=None, channel=channel
         )
-        self.assertEqual(strain.channel.name, channel)
-        self.assertTrue(np.all(strain.value == data[:-1]))
+        self.assertEqual(strain.name, channel)
+        self.assertTrue(np.all(strain.value == data))
 
         # Check reading with time limits
         start_cut = 2
@@ -145,19 +132,18 @@ class TestGWUtils(unittest.TestCase):
         strain = gwutils.read_frame_file(
             filename, start_time=start_cut, end_time=end_cut, channel=channel
         )
-        idxs = (times > start_cut) & (times < end_cut)
-        # Dropping the last element - for some reason gwpy drops the last element when reading in data
-        self.assertTrue(np.all(strain.value == data[idxs][:-1]))
+        idxs = (times >= start_cut) & (times < end_cut)
+        self.assertTrue(np.all(strain.value == data[idxs]))
 
         # Check reading with unknown channels
         strain = gwutils.read_frame_file(filename, start_time=None, end_time=None)
-        self.assertTrue(np.all(strain.value == data[:-1]))
+        self.assertTrue(np.all(strain.value == data))
 
         # Check reading with incorrect channel
         strain = gwutils.read_frame_file(
             filename, start_time=None, end_time=None, channel="WRONG"
         )
-        self.assertTrue(np.all(strain.value == data[:-1]))
+        self.assertTrue(np.all(strain.value == data))
 
         ts = TimeSeries(data=data, times=times, t0=0)
         ts.name = "NOT-A-KNOWN-CHANNEL"

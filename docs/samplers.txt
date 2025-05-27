@@ -66,9 +66,23 @@ Nested Samplers
 MCMC samplers
 -------------
 
+- bilby-mcmc :code:`bilby.bilby_mcmc.sampler.Bilby_MCMC`
 - emcee :code:`bilby.core.sampler.emcee.Emcee`
 - ptemcee :code:`bilby.core.sampler.ptemcee.Ptemcee`
-- pymc3 :code:`bilby.core.sampler.pymc3.Pymc3`
+- pymc :code:`bilby.core.sampler.pymc.Pymc`
+- zeus :code:`bilby.core.sampler.zeus.Zeus`
+
+
+--------------------------
+Listing available samplers
+--------------------------
+
+A list of available samplers can be produced using
+:py:func:`bilby.core.sampler.get_implemented_samplers`.
+This will list native bilby samplers and any samplers available via a plugin.
+If a plugin provides a sampler that is also implemented in bilby, the bilby
+implementation will be labeled with the prfix `bilby.` to distinguish it from
+the plugin version. See `sampler plugins`_ for more details.
 
 
 -------------------

@@ -3,7 +3,7 @@ import shutil
 import unittest
 
 import bilby
-from bilby.bilby_mcmc.sampler import Bilby_MCMC, BilbyMCMCSampler, _initialize_global_variables
+from bilby.bilby_mcmc.sampler import Bilby_MCMC, BilbyMCMCSampler
 from bilby.bilby_mcmc.utils import ConvergenceInputs
 from bilby.core.sampler.base_sampler import SamplerError
 import numpy as np
@@ -44,7 +44,12 @@ class TestBilbyMCMCSampler(unittest.TestCase):
         search_parameter_keys = ['m', 'c']
         use_ratio = False
 
-        _initialize_global_variables(likelihood, priors, search_parameter_keys, use_ratio)
+        bilby.core.sampler.base_sampler._initialize_global_variables(
+            likelihood,
+            priors,
+            search_parameter_keys,
+            use_ratio,
+        )
 
     def tearDown(self):
         if os.path.isdir(self.outdir):
@@ -78,6 +83,17 @@ class TestBilbyMCMCSampler(unittest.TestCase):
         self.assertEqual(sampler.chain.position, nsteps)
         self.assertEqual(sampler.accepted + sampler.rejected, nsteps)
         self.assertTrue(isinstance(sampler.samples, pd.DataFrame))
+
+
+def test_get_expected_outputs():
+    label = "par0"
+    outdir = os.path.join("some", "bilby_pipe", "dir")
+    filenames, directories = Bilby_MCMC.get_expected_outputs(
+        outdir=outdir, label=label
+    )
+    assert len(filenames) == 1
+    assert len(directories) == 0
+    assert os.path.join(outdir, f"{label}_resume.pickle") in filenames
 
 
 if __name__ == "__main__":

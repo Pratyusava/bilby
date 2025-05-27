@@ -9,6 +9,7 @@ Welcome to bilby's documentation!
    :caption: Contents:
 
    installation
+   citing-bilby
    code-overview
    examples
    basics-of-parameter-estimation
@@ -16,6 +17,8 @@ Welcome to bilby's documentation!
    likelihood
    samplers
    dynesty-guide
+   bilby-mcmc-guide
+   plugins
    bilby-output
    compact-binary-coalescence-parameter-estimation
    transient-gw-data
@@ -26,7 +29,9 @@ Welcome to bilby's documentation!
    writing-documentation
    hyperparameters
    containers
+   contribution-guide
    faq
+
 
 .. toctree::
    :maxdepth: 1
@@ -51,4 +56,4 @@ API:
     core
     gw
     hyper
-
+    bilby_mcmc

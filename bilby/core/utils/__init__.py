@@ -1,3 +1,4 @@
+from . import random
 from .calculus import *
 from .cmd import *
 from .colors import *
@@ -5,11 +6,11 @@ from .constants import *
 from .conversion import *
 from .counter import *
 from .docs import *
+from .entry_points import *
 from .introspection import *
 from .io import *
 from .log import *
 from .plotting import *
-from .progress import *
 from .samples import *
 from .series import *
 

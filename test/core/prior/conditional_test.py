@@ -1,7 +1,11 @@
+import os
+import shutil
 import unittest
+from unittest import mock
 
-import mock
 import numpy as np
+import pandas as pd
+import pickle
 
 import bilby
 
@@ -272,20 +276,22 @@ class TestConditionalPriorDict(unittest.TestCase):
             self.conditional_priors.ln_prob(sample=self.test_sample)
 
     def test_sample_subset_all_keys(self):
-        with mock.patch("numpy.random.uniform") as m:
-            m.return_value = 0.5
-            self.assertDictEqual(
-                dict(var_0=0.5, var_1=0.5 ** 2, var_2=0.5 ** 3, var_3=0.5 ** 4),
-                self.conditional_priors.sample_subset(
-                    keys=["var_0", "var_1", "var_2", "var_3"]
-                ),
-            )
+        bilby.core.utils.random.seed(5)
+        self.assertDictEqual(
+            dict(
+                var_0=0.8050029237453802,
+                var_1=0.6503946979510289,
+                var_2=0.33516501262044845,
+                var_3=0.09579062316418356,
+            ),
+            self.conditional_priors.sample_subset(
+                keys=["var_0", "var_1", "var_2", "var_3"]
+            ),
+        )
 
     def test_sample_illegal_subset(self):
-        with mock.patch("numpy.random.uniform") as m:
-            m.return_value = 0.5
-            with self.assertRaises(bilby.core.prior.IllegalConditionsException):
-                self.conditional_priors.sample_subset(keys=["var_1"])
+        with self.assertRaises(bilby.core.prior.IllegalConditionsException):
+            self.conditional_priors.sample_subset(keys=["var_1"])
 
     def test_sample_multiple(self):
         def condition_func(reference_params, a):
@@ -319,6 +325,43 @@ class TestConditionalPriorDict(unittest.TestCase):
         for ii in range(1, 4):
             expected.append(expected[-1] * self.test_sample[f"var_{ii}"])
         self.assertListEqual(expected, res)
+
+    def test_rescale_with_joint_prior(self):
+        """
+        Add a joint prior into the conditional prior dictionary and check that
+        the returned list is flat.
+        """
+
+        # set multivariate Gaussian distribution
+        names = ["mvgvar_0", "mvgvar_1"]
+        mu = [[0.79, -0.83]]
+        cov = [[[0.03, 0.], [0., 0.04]]]
+        mvg = bilby.core.prior.MultivariateGaussianDist(names, mus=mu, covs=cov)
+
+        priordict = bilby.core.prior.ConditionalPriorDict(
+            dict(
+                var_3=self.prior_3,
+                var_2=self.prior_2,
+                var_0=self.prior_0,
+                var_1=self.prior_1,
+                mvgvar_0=bilby.core.prior.MultivariateGaussian(mvg, "mvgvar_0"),
+                mvgvar_1=bilby.core.prior.MultivariateGaussian(mvg, "mvgvar_1"),
+            )
+        )
+
+        ref_variables = list(self.test_sample.values()) + [0.4, 0.1]
+        keys = list(self.test_sample.keys()) + names
+        res = priordict.rescale(keys=keys, theta=ref_variables)
+
+        self.assertIsInstance(res, list)
+        self.assertEqual(np.shape(res), (6,))
+        self.assertListEqual([isinstance(r, float) for r in res], 6 * [True])
+
+        # check conditional values are still as expected
+        expected = [self.test_sample["var_0"]]
+        for ii in range(1, 4):
+            expected.append(expected[-1] * self.test_sample[f"var_{ii}"])
+        self.assertListEqual(expected, res[0:4])
 
     def test_cdf(self):
         """
@@ -369,6 +412,70 @@ class TestConditionalPriorDict(unittest.TestCase):
         priors.sample()
         res = priors.rescale(["a", "b", "d", "c"], [0.5, 0.5, 0.5, 0.5])
         print(res)
+
+    def test_subset_sampling(self):
+        def _tp_conditional_uniform(ref_params, period):
+            min_ref, max_ref = ref_params["minimum"], ref_params["maximum"]
+            max_ref = np.minimum(max_ref, min_ref + period)
+            return {"minimum": min_ref, "maximum": max_ref}
+
+        p0 = 68400.0
+        prior = bilby.core.prior.ConditionalPriorDict(
+            {
+                "tp": bilby.core.prior.ConditionalUniform(
+                    condition_func=_tp_conditional_uniform, minimum=0, maximum=2 * p0
+                )
+            }
+        )
+
+        # ---------- 0. Sanity check: sample full prior
+        prior["period"] = p0
+        samples2d = prior.sample(1000)
+        assert samples2d["tp"].max() < p0
+
+        # ---------- 1. Subset sampling with external delta-prior
+        print("Test 1: Subset-sampling conditionals for fixed 'externals':")
+        prior["period"] = p0
+        samples1d = prior.sample_subset(["tp"], 1000)
+        self.assertLess(samples1d["tp"].max(), p0)
+
+        # ---------- 2. Subset sampling with external uniform prior
+        prior["period"] = bilby.core.prior.Uniform(minimum=p0, maximum=2 * p0)
+        print("Test 2: Subset-sampling conditionals for 'external' uncertainties:")
+        with self.assertRaises(bilby.core.prior.IllegalConditionsException):
+            prior.sample_subset(["tp"], 1000)
+
+
+class TestDirichletPrior(unittest.TestCase):
+
+    def setUp(self):
+        self.priors = bilby.core.prior.DirichletPriorDict(5)
+
+    def tearDown(self):
+        if os.path.isdir("priors"):
+            shutil.rmtree("priors")
+
+    def test_samples_sum_to_less_than_one(self):
+        """
+        Test that the samples sum to less than one as required for the
+        Dirichlet distribution.
+        """
+        samples = pd.DataFrame(self.priors.sample(10000)).values
+        self.assertLess(max(np.sum(samples, axis=1)), 1)
+
+    def test_read_write_file(self):
+        self.priors.to_file(outdir="priors", label="test")
+        test = bilby.core.prior.PriorDict(filename="priors/test.prior")
+        self.assertEqual(self.priors, test)
+
+    def test_read_write_json(self):
+        self.priors.to_json(outdir="priors", label="test")
+        test = bilby.core.prior.PriorDict.from_json(filename="priors/test_prior.json")
+        self.assertEqual(self.priors, test)
+
+    def test_pickle(self):
+        """Assert can be pickled (needed for use with bilby_pipe)"""
+        pickle.dumps(self.priors)
 
 
 if __name__ == "__main__":

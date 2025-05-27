@@ -1,6 +1,339 @@
 # All notable changes will be documented in this file
 
-## [1.1.3] 2021-07-02
+## [Unreleased]
+
+
+## [2.3.0] - 2024-05-30
+
+### Added
+
+- Add support for sampler plugins via entry points (!1340, !1355)
+- Add `bilby.core.sampler.get_implemented_samplers` and `bilby.core.get_sampler_class` (!1340)
+- Add `bilby.core.utils.entry_points.get_entry_points` (!1340)
+- Add support for reading results from PathLike objects (!1342)
+- Add `snrs_as_sample` property to `bilby.gw.likelihood.base.GravitationalWaveTransient` (!1344)
+- Add `get_expected_outputs` method to the sampler classes (!1336)
+
+### Changed
+
+- Change `bilby_mcmc` to use `glasflow` instead of `nflows` (!1332)
+- Sampler classes in are no longer imported in `bilby.core.sampler` (!1340)
+- Sampler classes in `bilby.core.sampler.IMPLEMENTED_SAMPLERS` must now be loaded before use (!1340)
+- `bilby.core.sampler.IMPLEMENTED_SAMPLERS` is now an instance of `bilby.core.sampler.ImplementedSampler` instead of a dictionary (!1355)
+- Updates to support numpy v2 (!1362)
+
+### Fixed
+
+- Include final frequency point in relative binning integration (!1310)
+- Address various deprecation warnings and deprecated keyword arguments (!1316, !1326, !1343)
+- Fix typo in logging statement in `bilby.gw.source` (!1325)
+- Fix missing import in `bilby.gw.detector.load_data_from_cache_file` (!1327)
+- Fix bug where `linestyle` was ignored in `bilby.core.result.plot_multiple` (!1238)
+- Fix `soft_init` sampler keyword argument with `dynesty` (!1335)
+- Fix ZeroDivisionError when using the `dynesty` with `act-walk` and large values of `nact` (!1346)
+- Fix custom prior loading from result file (!1360)
+
+
+## [2.2.3] - 2024-02-24
+Version 2.2.3 release of Bilby
+
+This is a bugfix release 
+
+There are also a number of testing/infrastructure updates.
+
+### Changes
+- Fix a bug when the specified maximum frequency is too low for the multibanding likelihood (!1279)
+- Allow the `DirichletElement` prior to be pickled (!1312)
+- Add the ability to change the pool size when resuming a `dynesty` job (!1315)
+- Fix how the random seed is passed to `dynesty` (!1319)
+
+## [2.2.2] - 2023-11-29
+Version 2.2.2 release of Bilby
+
+This is a bugfix release reverting a change from 2.2.1
+
+### Changes
+- Revert !1284 (!1306)
+
+## [2.2.1] - 2023-1111
+Version 2.2.1 release of Bilby
+
+This release is a bugfix release.
+
+### Changes
+- Ensure inteferometer metadata is not empty (!1281)
+- Make interrupted pools exit more quickly (!1284)
+- Fix conditional sampling with DeltaFunction conditions (!1289)
+- The triangular prior raised an error with numpy (!1294)
+- Make sure strain data resampling works (!1295)
+- Dynesty logging (!1296)
+- A bug with saving lists that contain None (!1301)
+- Preparatory fix an upcoming change in dynesty (!1302)
+
+## [2.2.0] - 2023-07-24
+Version 2.2.0 release of Bilby
+
+This release contains one new feature and drops support for Python 3.8.
+
+### Added
+- New waveform interface to support the SEOBNRv5 family of waveforms (!1218)
+- Enable default noise + injection function for non-CBC signals (!1263)
+- Fallback to result pickle loading to match result writing (!1291)
+
+### Changes
+- Additional error catching for plotting (!1261, !1271)
+- Improve plotting options for corner plots (!1270)
+- Fix bugs in closing the pool for emcee (!1274)
+- Generalize MPI support (!1278)
+- Fix a bug with saving hdf5 results when conda isn't present (!1290)
+
+### Deprecated
+- Drop support for py38 (!1277)
+
+## [2.1.2] - 2023-07-17
+Version 2.1.2 release of Bilby
+
+This is a bugfix release.
+Note that one of the changes will have a significant impact on scripts that rely on
+a seed for random data generation.
+Where users have previously used `np.random.seed` they should now call
+`bilby.core.utils.random.seed`.
+
+### Changes
+- Fix issues related to random number generation with multiprocessing (!1273)
+- Enable cosmological priors to be written/read in our plain text format (!1258)
+- Allow posterior reweighting to be performed when changing the likelihood and the prior (!1260)
+
+## [2.1.1] - 2023-04-28
+Version 2.1.1 release of Bilby
+
+Bugfix release
+
+### Changes
+- Fix the matched filter SNR phase for the multiband likelihood (!1253)
+- Bugfix for Fisher matrix proposals in `bilby_mcmc` (!1251)
+- Make the changes to the spline calibration backward compatible, 2.0.2 resume files can't be read with 2.1.0 (!1250)
+
+## [2.1.0] - 2023-04-12
+Version 2.1.0 release of Bilby
+
+Minor feature improvements and bug fixes
+
+### Additions
+- Additional parameterizations for equation-of-state inference (!1083, !1240)
+- Add Fisher matrix posterior estimator (!1242)
+
+### Changes
+- Improvements to the bilby-mcmc sampler including a Fisher Information Matrix proposal (!1242)
+- Optimize spline interpolation of calibration uncertainties (!1241)
+- Update LIGO India coordinates record to public DCC (!1246)
+- Make logger disabling work in redundancy test (!1245)
+- Make sure nested samples are data frame (!1244)
+- Minor improvements to the result methods including moving to top level imports (!1243)
+- Fix a bug in the slabspike prior (!1235)
+- Reduce verbosity when setting strain data (!1233)
+- Fix issue with cached results class (!1223)
+
+### Deprecated
+- Reading/writing ROQ weights to json (!1232)
+
+## [2.0.2] - 2023-03-21
+Version 2.0.2 release of Bilby
+
+This is a bugfix release after the last major update.
+
+### Changes
+- Fix to bilby-MCMC implementation of prior boundary (!1237)
+- Fix to time calibration (!1234)
+- Fix nessai sampling time (!1236)
+
+## [2.0.1] - 2023-03-13
+Version 2.0.1 release of Bilby
+
+This is a bugfix release after the last major update.
+
+Users may notice changes in inferred binary neutron star masses after updating to match [lalsuite](https://git.ligo.org/lscsoft/lalsuite/-/merge_requests/1658).
+
+### Changes
+- Make sure quantities that need to be conserved between dynesty iterations are class-level attributes (!1225).
+- Fix massive memory usage in post-processing calculation of SNRs (!1227).
+- Update value for the solar mass (!1229).
+- Make `scikit-learn` an explicit dependence of `bilby[GW]` (!1230).
+
+## [2.0.0] - 2023-02-29
+Version 2.0.0 release of Bilby
+
+This major version release has a significant change to the behaviour of the `dynesty` wrapper.
+
+There are also a number of bugfixes and some new features in sampling and GW utilities.
+
+### Added
+- Add marginalized time reconstruction for the ROQ likelihood (!1196)
+- Generate the `dynesty` posterior using rejection sampling by default (!1203)
+- Add optimization for mass ratio prior peaking at equal masses (!1204)
+- Add option to sample over a number of precomputed calibration curves (!1215)
+
+### Changes
+- Optimize weight calculation for `MultiBandGravitationalWaveTransient` (!1171)
+- Add compatibility with pymc 5 (!1191)
+- A bug fix of the stored prior when using a marginalized likelihood (!1193)
+- Various bug fixes to improve the reliability of the `RelativeBinningGravitationalWaveTransient` (!1198, !1211)
+- A hack fix for samplers that are not compatible with `numpy>1.23` (!1194)
+- Updates to some reference noise curves (!1206, !1207)
+- Fix the broken time+calibration marginalization (!1201)
+- Fix a bug when reading GW frame files (!1202)
+- Fix the normalization of the whitened strain attribute of `Interferometer` (!1205)
+- Optimize ROQ waveform and calibration calls (!1216)
+- Add different proposal distribution and MCMC length for `dynesty` (!1187, !1222)
+
+## [1.4.1] - 2022-12-07
+Version 1.4.1 release of Bilby
+
+This is a bugfix release to address some minor issues identified after v1.4.0.
+
+### Changes
+- Documentation updates (!1181, !1183)
+- Fix some of the examples in the repository (!1182)
+- Make sure conversion to symmetric mass ratio always returns a valid value (!1184)
+- Provide a default nlive for dynamic dynesty (!1185)
+- Enable the relative binning likelihood to be initialized with ra/dec when sampling in a different sky parameterization (!1186)
+- Make sure that all dumping pickle files is done safely (!1189)
+- Make error catching for `dynesty` checkpointing more robust (!1190)
+
+## [1.4.0] - 2022-11-18
+Version 1.4.0 release of Bilby
+
+The main changes in this release are support for more recent versions of `dynesty` (!1138)
+and `nessai` (!1161) and adding the
+`RelativeBinningGravitationalWaveTransientLikelihood` (!1105)
+(see [arXiv:1806.08792](https://arxiv.org/abs/1806.08792)) for details.
+
+### Added
+- Per-detector likelihood calculations (!1149)
+- `bilby.gw.likelihood.relative.RelativeBinningGravitationalWaveTransient` (!1105)
+
+### Changes
+- Reset the timer for `PyMultiNest` when overwriting an existing checkpoint directory (!1163)
+- Cache the computed the noise log likelihood for the `GravitationalWaveTransient` (!1179)
+- Set the reference chirp mass for the multi banded likelihood from the prior when not specified (!1169)
+- Bugfix in the name of the saved ASD file in `Interferometer.save_data` (!1176)
+- Modify the window length for stationarity tests for `ptemcee` (!1146)
+- Explicit support for `nessai>=0.7.0` (!1161)
+- Allow prior arguments read from a string to be functions (!1144)
+- Support `dynesty>=1.1.0` (!1138)
+
+## [1.3.0] - 2022-10-23
+Version 1.3.0 release of Bilby
+
+This release has a major change to a sampler interface, `pymc3` is no longer supported, users should switch to `pymc>=4`.
+This release also adds a new top-level dependency, `bilby-cython`.
+
+This release also contains various documentation improvements.
+
+### Added
+- Improved logging of likelihood information when starting sampling (!1148)
+- Switch some geometric calculations to use optimized bilby-cython package (!1053)
+- Directly specify the starting point for `bilby_mcmc` (!1155)
+- Allow a signal to be specified to only be present in a specific `Interferometer` (!1164)
+- Store time domain model function in CBCResult metadata (!1165)
+
+### Changes
+- Switch from `pymc3` to `pymc` (!1117)
+- Relax equality check for distance marginalization lookup to allow cross-platform use (!1150)
+- Fix to deal with non-checkpointing `bilby_mcmc` analyses (!1151)
+- Allow result objects with different analysis configurations to be combined (!1153)
+- Improve the storing of environment information (!166)
+- Fix issue when specifying distance and redshfit independently (!1154)
+- Fix a bug in the storage of likelihood/prior samples for `bilby_mcmc` (!1156)
+
+## [1.2.1] - 2022-09-05
+Version 1.2.1 release of Bilby
+
+This release contains a few bug fixes following 1.2.0.
+
+### Changes
+- Improve how sampling seed is handled across samplers (!1134)
+- Make sure labels are included when evidences are in corner plot legend (!1135)
+- Remove calls to `getargspec` (!1136)
+- Make sure parameter reconstruction cache is not mangled when reading (!1126)
+- Enable the constant uncertainty calibration spline to have a specifiable boundary condition (!1137)
+- Fix a bug in checkpointing for `bilby_mcmc` (!1141)
+- Fix the `LALCBCWaveformGenerator` (!1140)
+- Switch to automatic versioning with `setuptools_scm` (!1125)
+- Improve the stability of the multivariate normal prior (!1142)
+- Extend mass conversions to include source-frame parameters (!1131)
+- Fix prior ranges for GW150914 example (!1129)
+
+## [1.2.0] - 2022-08-15
+Version 1.2.0 release of Bilby
+
+This is the first release that drops support for `Python<3.8`.
+
+This release involves major refactoring, especially of the sampler implementations.
+
+Additionally, there are a range of improvements to how information is passed
+with multiprocessing.
+
+### Added
+- Time marginalized ROQ likelihood (!1040)
+- Multiple and multi-banded ROQ likelihood (!1093)
+- Gaussian process likelihoods (!1086)
+- `CBCWaveformGenerator` added with CBC specific defaults (!1080)
+
+### Changes
+- Fixes and improvements to multi-processing (!1084, !1043, !1096)
+- Major refactoring of sampler implementations (!1043)
+- Fixes for reading/writing priors (!1103, !1127, !1128)
+- Fixes/updates to exmample scripts (!1050, !1031, !1076, !1081, !1074)
+- Fixes to calibration correction in GW likelihoods (!1114, !1120, !1119)
+
+### Deprecated/removed
+- Require `Python>=3.8`
+- Require `astropy>=5`
+- `bilby.core.utils.conversion.gps_time_to_gmst`
+- `bilby.core.utils.spherical_to_cartesian`
+- `bilby.core.utils.progress`
+- Deepdish IO for `Result`, `Interferometer`, and `InterferometerList`
+
+## [1.1.5] - 2022-01-14
+Version 1.1.5 release of Bilby
+
+### Added
+- Option to enforce that a GW signal fits into the segment duration (!1041)
+- Remove the save `.dat` samples file with `dynesty` (!1028)
+- Catch corrupted `json` result result files being passed (!1034)
+
+### Changes
+- Fixes to conversion function for `nessai` and `cpnest` (!1055)
+- Workaround for `astropy` v5 (!1054)
+- Various fixes to testing system (!1038, !1044, !1045, !1048)
+- Updated defaults for `nessai` (!1042)
+- Small bug fixes (!1032, !1036, !1039, !1046, !1052)
+- Bug fix in the definition of some standard interferometers (!1037)
+- Improvements to the multi-banded GWT likelihood (!1026)
+- Improve meta data comparison (!1035)
+
+## [1.1.4] - 2021-10-08
+Version 1.1.4 release of bilby
+
+### Added
+- Version of dynesty pinned to less than v1.1 to anticipate breaking changes (!1020)
+- Pool to computation of SNR (!1013)
+- Ability to load results produced with custom priors (!1010)
+- The nestcheck test (!1005)
+- Bilby-mcmc guide to docs (!1001)
+- Codespell pre-commit (!996)
+- MBGravitationalWaveTransient (!972)
+- Zeus MCMC sampler support (!962)
+- Option to use print rather than tqdm (!937)
+
+### Changes
+- Updates citation guide (!1030)
+- Minor bug fixes (!1029, !1025, !1022, !1016, !1018, !1014, !1007, !1004)
+- Typo fix in eart light crossing (!1003)
+- Fix zero spin conversion (!1002)
+
+## [1.1.3] - 2021-07-02
 Version 1.1.3 release of bilby
 
 ### Added
@@ -30,7 +363,7 @@ Version 1.1.3 release of bilby
 - Restructured utils module into several submodules. API remains backwards compatible (!873)
 - Changed number of default walks in `dynesty` from `10*self.ndim` to `100` (!961)
 
-## [1.1.2] 2021-05-05
+## [1.1.2] - 2021-05-05
 Version 1.1.2 release of bilby
 
 ### Added
@@ -60,13 +393,13 @@ Version 1.1.2 release of bilby
 - Fixed issues with pickle saving and loading (!932)
 - Fixed an issue with the `_base_roq_waveform` (!959)
 
-## [1.1.1] 2021-03-16
+## [1.1.1] - 2021-03-16
 Version 1.1.1 release of bilby
 
 ### Changes
 - Added `include requirements.txt` in `MANIFEST.in` to stop the pip installation from breaking
 
-## [1.1.0] 2021-03-15
+## [1.1.0] - 2021-03-15
 Version 1.1.0 release of bilby
 
 ### Added
@@ -105,7 +438,7 @@ Version 1.1.0 release of bilby
 - Fixed the likelihood count in `dynesty` (!853)
 - Changed the ordering of keyword arguments for the `Sine` and `Cosine` constructors (!892)
 
-## [1.0.4] 2020-11-23
+## [1.0.4] - 2020-11-23
 Version 1.0.4 release of bilby
 
 ### Added
@@ -114,7 +447,7 @@ Version 1.0.4 release of bilby
 ### Changes
 - Fixed issue in the CI
 
-## [1.0.3] 2020-10-23
+## [1.0.3] - 2020-10-23
 
 Version 1.0.3 release of bilby
 
@@ -133,7 +466,7 @@ Version 1.0.3 release of bilby
 - Typo fixes (!878, !887, !879)
 - Minor bug fixes (!888)
 
-## [1.0.2] 2020-09-14
+## [1.0.2] - 2020-09-14
 
 Version 1.0.2 release of bilby
 
@@ -155,7 +488,7 @@ Version 1.0.2 release of bilby
 - Clean up of code (!854)
 - Various minor bug, test and plotting fixes (!859, !874, !872, !865)
 
-## [1.0.1] 2020-08-29
+## [1.0.1] - 2020-08-29
 
 Version 1.0.1 release of bilby
 
@@ -180,7 +513,7 @@ Version 1.0.1 release of bilby
 - Various minor bug fixes and improvements to the documentation (!820)(!823)(!837)
 - Various testing improvements (!833)(!847)(!855)(!852)
 
-## [1.0.0] 2020-07-06
+## [1.0.0] - 2020-07-06
 
 Version 1.0 release of bilby
 
@@ -731,3 +1064,33 @@ First `pip` installable version https://pypi.org/project/BILBY/ .
 
 ### Removed
 - All chainconsumer dependency as this was causing issues.
+
+
+[Unreleased]: https://git.ligo.org/lscsoft/bilby/-/compare/v2.3.0...master
+[2.3.0]: https://git.ligo.org/lscsoft/bilby/-/compare/v2.2.3...v2.3.0
+[2.2.3]: https://git.ligo.org/lscsoft/bilby/-/compare/v2.2.2...v2.2.3
+[2.2.2]: https://git.ligo.org/lscsoft/bilby/-/compare/v2.2.1...v2.2.2
+[2.2.1]: https://git.ligo.org/lscsoft/bilby/-/compare/v2.2.0...v2.2.1
+[2.2.0]: https://git.ligo.org/lscsoft/bilby/-/compare/v2.1.2...v2.2.0
+[2.1.2]: https://git.ligo.org/lscsoft/bilby/-/compare/v2.1.1...v2.1.2
+[2.1.1]: https://git.ligo.org/lscsoft/bilby/-/compare/v2.1.0...v2.1.1
+[2.1.0]: https://git.ligo.org/lscsoft/bilby/-/compare/v2.0.2...v2.1.0
+[2.0.2]: https://git.ligo.org/lscsoft/bilby/-/compare/v2.0.1...v2.0.2
+[2.0.1]: https://git.ligo.org/lscsoft/bilby/-/compare/v2.0.0...v2.0.1
+[2.0.0]: https://git.ligo.org/lscsoft/bilby/-/compare/v1.4.1...v2.0.0
+[1.4.1]: https://git.ligo.org/lscsoft/bilby/-/compare/v1.4.0...v1.4.1
+[1.4.0]: https://git.ligo.org/lscsoft/bilby/-/compare/1.3.0...v1.4.0
+[1.3.0]: https://git.ligo.org/lscsoft/bilby/-/compare/1.2.1...1.3.0
+[1.2.1]: https://git.ligo.org/lscsoft/bilby/-/compare/1.2.0...1.2.1
+[1.2.0]: https://git.ligo.org/lscsoft/bilby/-/compare/1.1.5...1.2.0
+[1.1.5]: https://git.ligo.org/lscsoft/bilby/-/compare/1.1.4...1.1.5
+[1.1.4]: https://git.ligo.org/lscsoft/bilby/-/compare/1.1.2...1.1.4
+[1.1.3]: https://git.ligo.org/lscsoft/bilby/-/compare/1.1.2...1.1.3
+[1.1.2]: https://git.ligo.org/lscsoft/bilby/-/compare/1.1.1...1.1.2
+[1.1.1]: https://git.ligo.org/lscsoft/bilby/-/compare/1.1.0...1.1.1
+[1.1.0]: https://git.ligo.org/lscsoft/bilby/-/compare/1.0.4...1.1.0
+[1.0.4]: https://git.ligo.org/lscsoft/bilby/-/compare/1.0.3...1.0.4
+[1.0.3]: https://git.ligo.org/lscsoft/bilby/-/compare/1.0.2...1.0.3
+[1.0.2]: https://git.ligo.org/lscsoft/bilby/-/compare/1.0.1...1.0.2
+[1.0.1]: https://git.ligo.org/lscsoft/bilby/-/compare/1.0.0...1.0.1
+[1.0.0]: https://git.ligo.org/lscsoft/bilby/-/compare/0.6.9...1.0.0

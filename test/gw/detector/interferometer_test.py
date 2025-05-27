@@ -1,14 +1,11 @@
-import sys
 import unittest
-import pytest
-from packaging import version
+from unittest import mock
+
+import lal
+import lalsimulation
 from shutil import rmtree
 
-import deepdish as dd
-import mock
 import numpy as np
-from mock import MagicMock, patch
-import pandas
 
 import bilby
 
@@ -54,14 +51,17 @@ class TestInterferometer(unittest.TestCase):
         self.injection_polarizations["plus"] = np.random.random(4097)
         self.injection_polarizations["cross"] = np.random.random(4097)
 
-        self.waveform_generator = MagicMock()
+        self.waveform_generator = mock.MagicMock()
         self.wg_polarizations = dict(
             plus=np.random.random(4097), cross=np.random.random(4097)
         )
         self.waveform_generator.frequency_domain_strain = (
             lambda _: self.wg_polarizations
         )
-        self.parameters = dict(ra=0.0, dec=0.0, geocent_time=0.0, psi=0.0)
+        self.parameters = dict(
+            ra=0.0, dec=0.0, geocent_time=0.0, psi=0.0,
+            mass_1=100, mass_2=100
+        )
 
         bilby.core.utils.check_directory_exists_and_if_not_mkdir(self.outdir)
 
@@ -97,24 +97,9 @@ class TestInterferometer(unittest.TestCase):
     def test_max_freq_setting(self):
         self.assertEqual(self.ifo.strain_data.maximum_frequency, self.maximum_frequency)
 
-    def test_antenna_response_default(self):
-        with mock.patch("bilby.gw.utils.get_polarization_tensor") as m:
-            with mock.patch("numpy.einsum") as n:
-                m.return_value = 0
-                n.return_value = 1
-                self.assertEqual(self.ifo.antenna_response(234, 52, 54, 76, "plus"), 1)
-
-    def test_antenna_response_einsum(self):
-        with mock.patch("bilby.gw.utils.get_polarization_tensor") as m:
-            m.return_value = np.ones((3, 3))
-            self.assertAlmostEqual(
-                self.ifo.antenna_response(234, 52, 54, 76, "plus"),
-                self.ifo.detector_tensor.sum(),
-            )
-
     def test_get_detector_response_default_behaviour(self):
-        self.ifo.antenna_response = MagicMock(return_value=1)
-        self.ifo.time_delay_from_geocenter = MagicMock(return_value=0)
+        self.ifo.antenna_response = mock.MagicMock(return_value=1)
+        self.ifo.time_delay_from_geocenter = mock.MagicMock(return_value=0)
         self.ifo.epoch = 0
         self.minimum_frequency = 10
         self.maximum_frequency = 20
@@ -129,8 +114,8 @@ class TestInterferometer(unittest.TestCase):
         )
 
     def test_get_detector_response_with_dt(self):
-        self.ifo.antenna_response = MagicMock(return_value=1)
-        self.ifo.time_delay_from_geocenter = MagicMock(return_value=0)
+        self.ifo.antenna_response = mock.MagicMock(return_value=1)
+        self.ifo.time_delay_from_geocenter = mock.MagicMock(return_value=0)
         self.ifo.epoch = 1
         self.minimum_frequency = 10
         self.maximum_frequency = 20
@@ -147,8 +132,8 @@ class TestInterferometer(unittest.TestCase):
         self.assertTrue(np.allclose(abs(expected_response), abs(response)))
 
     def test_get_detector_response_multiple_modes(self):
-        self.ifo.antenna_response = MagicMock(return_value=1)
-        self.ifo.time_delay_from_geocenter = MagicMock(return_value=0)
+        self.ifo.antenna_response = mock.MagicMock(return_value=1)
+        self.ifo.time_delay_from_geocenter = mock.MagicMock(return_value=0)
         self.ifo.epoch = 0
         self.minimum_frequency = 10
         self.maximum_frequency = 20
@@ -222,7 +207,7 @@ class TestInterferometer(unittest.TestCase):
                 injection_polarizations=self.injection_polarizations,
             )
 
-    @patch.object(bilby.core.utils.logger, "warning")
+    @mock.patch.object(bilby.core.utils.logger, "warning")
     def test_inject_signal_outside_segment_logs_warning(self, m):
         self.parameters["geocent_time"] = 24345.0
         self.ifo.get_detector_response = lambda x, params: x["plus"] + x["cross"]
@@ -248,7 +233,7 @@ class TestInterferometer(unittest.TestCase):
             )
         )
 
-    @patch.object(
+    @mock.patch.object(
         bilby.gw.detector.Interferometer, "inject_signal_from_waveform_generator"
     )
     def test_inject_signal_with_waveform_generator_correct_call(self, m):
@@ -291,7 +276,7 @@ class TestInterferometer(unittest.TestCase):
             np.array_equal(expected, self.ifo.strain_data._frequency_domain_strain)
         )
 
-    @patch.object(
+    @mock.patch.object(
         bilby.gw.detector.Interferometer, "inject_signal_from_waveform_polarizations"
     )
     def test_inject_signal_with_injection_polarizations_and_waveform_generator(self, m):
@@ -315,16 +300,6 @@ class TestInterferometer(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.ifo.inject_signal(injection_polarizations=None, parameters=None)
 
-    def test_time_delay_from_geocenter(self):
-        with mock.patch("bilby.gw.utils.time_delay_geocentric") as m:
-            m.return_value = 1
-            self.assertEqual(self.ifo.time_delay_from_geocenter(1, 2, 3), 1)
-
-    def test_vertex_position_geocentric(self):
-        with mock.patch("bilby.gw.utils.get_vertex_position_geocentric") as m:
-            m.return_value = 1
-            self.assertEqual(self.ifo.vertex_position_geocentric(), 1)
-
     def test_optimal_snr_squared(self):
         """
         Merely checks parameters are given in the right order and the frequency
@@ -346,6 +321,18 @@ class TestInterferometer(unittest.TestCase):
             self.assertTrue(np.array_equal(expected[2], actual[2]))
             self.assertEqual(expected[3], actual[3])
 
+    def test_template_template_inner_product(self):
+        signal_1 = np.ones_like(self.ifo.power_spectral_density_array)
+        signal_2 = np.ones_like(self.ifo.power_spectral_density_array) * 2
+        signal_1_optimal = self.ifo.optimal_snr_squared(signal=signal_1)
+        signal_1_optimal_by_template_template = self.ifo.template_template_inner_product(
+            signal_1=signal_1,
+            signal_2=signal_1
+        )
+        self.assertTrue(np.array_equal(signal_1_optimal, signal_1_optimal_by_template_template))
+        signal_1_signal_2_inner_product = self.ifo.template_template_inner_product(signal_1=signal_1, signal_2=signal_2)
+        self.assertTrue(np.array_equal(signal_1_optimal * 2, signal_1_signal_2_inner_product))
+
     def test_repr(self):
         expected = (
             "Interferometer(name='{}', power_spectral_density={}, minimum_frequency={}, "
@@ -366,32 +353,6 @@ class TestInterferometer(unittest.TestCase):
             )
         )
         self.assertEqual(expected, repr(self.ifo))
-
-    pandas_version_test = version.parse(pandas.__version__) >= version.parse("1.2.0")
-    skip_reason = "Deepdish requires pandas < 1.2"
-
-    @pytest.mark.skipif(pandas_version_test, reason=skip_reason)
-    def test_to_and_from_hdf5_loading(self):
-        if sys.version_info[0] < 3:
-            with self.assertRaises(NotImplementedError):
-                self.ifo.to_hdf5(outdir="outdir", label="test")
-        else:
-            self.ifo.to_hdf5(outdir="outdir", label="test")
-            filename = self.ifo._filename_from_outdir_label_extension(
-                outdir="outdir", label="test", extension="h5"
-            )
-            recovered_ifo = bilby.gw.detector.Interferometer.from_hdf5(filename)
-            self.assertEqual(self.ifo, recovered_ifo)
-
-    @pytest.mark.skipif(pandas_version_test or sys.version_info[0] < 3, reason=skip_reason)
-    def test_to_and_from_hdf5_wrong_class(self):
-        bilby.core.utils.check_directory_exists_and_if_not_mkdir("outdir")
-        dd.io.save("./outdir/psd.h5", self.power_spectral_density)
-        filename = self.ifo._filename_from_outdir_label_extension(
-            outdir="outdir", label="psd", extension="h5"
-        )
-        with self.assertRaises(TypeError):
-            bilby.gw.detector.Interferometer.from_hdf5(filename)
 
     def test_to_and_from_pkl_loading(self):
         self.ifo.to_pickle(outdir="outdir", label="test")
@@ -549,5 +510,154 @@ class TestInterferometerEquals(unittest.TestCase):
         self.assertNotEqual(self.ifo_1, self.ifo_2)
 
 
-if __name__ == "__main__":
-    unittest.main()
+class TestInterferometerAntennaPatternAgainstLAL(unittest.TestCase):
+    def setUp(self):
+        self.name = "name"
+        self.ifo_names = ['H1', 'L1', 'V1', 'K1', 'GEO600', 'ET']
+        self.lal_prefixes = {'H1': 'H1', 'L1': 'L1', 'V1': 'V1', 'K1': 'K1', 'GEO600': 'G1', 'ET': 'E1'}
+        self.polarizations = ['plus', 'cross', 'breathing', 'longitudinal', 'x', 'y']
+        self.ifos = bilby.gw.detector.InterferometerList(self.ifo_names)
+        self.gpstime = 1305303144
+        self.trial = 100
+
+    def tearDown(self):
+        del self.name
+        del self.ifo_names
+        del self.lal_prefixes
+        del self.polarizations
+        del self.ifos
+        del self.gpstime
+        del self.trial
+
+    def test_antenna_pattern_vs_lal(self):
+        gmst = lal.GreenwichMeanSiderealTime(self.gpstime)
+        f_bilby = np.zeros((self.trial, 6))
+        f_lal = np.zeros((self.trial, 6))
+
+        for n, ifo_name in enumerate(self.ifo_names):
+            response = lalsimulation.DetectorPrefixToLALDetector(self.lal_prefixes[ifo_name]).response
+            ifo = self.ifos[n]
+            for i in range(self.trial):
+                ra = 2. * np.pi * np.random.uniform()
+                dec = np.pi * np.random.uniform() - np.pi / 2.
+                psi = np.pi * np.random.uniform()
+                f_lal[i] = lal.ComputeDetAMResponseExtraModes(response, ra, dec, psi, gmst)
+                for m, pol in enumerate(self.polarizations):
+                    f_bilby[i, m] = ifo.antenna_response(ra, dec, self.gpstime, psi, pol)
+
+            std = np.std(f_bilby - f_lal, axis=0)
+            for m, pol in enumerate(self.polarizations):
+                with self.subTest(':'.join((ifo_name, pol))):
+                    self.assertAlmostEqual(std[m], 0.0, places=7)
+
+    def test_time_delay_vs_lal(self):
+        delays = np.zeros(self.trial)
+
+        for n, ifo_name in enumerate(self.ifo_names):
+            ifo = self.ifos[n]
+            det = lal.cached_detector_by_prefix[self.lal_prefixes[ifo_name]]
+            for i in range(self.trial):
+                gpstime = np.random.uniform(1205303144, 1405303144)
+                ra = 2. * np.pi * np.random.uniform()
+                dec = np.pi * np.random.uniform() - np.pi / 2.
+                delays[i] = (
+                    lal.TimeDelayFromEarthCenter(det.location, ra, dec, gpstime)
+                    - ifo.time_delay_from_geocenter(ra, dec, gpstime)
+                )
+
+            std = max(abs(delays))
+            with self.subTest(ifo_name):
+                self.assertAlmostEqual(std, 0.0, places=10)
+
+
+class TestInterferometerWhitenedStrain(unittest.TestCase):
+    def setUp(self):
+        self.duration = 64
+        self.sampling_frequency = 4096
+        self.ifo = bilby.gw.detector.get_empty_interferometer('H1')
+        self.ifo.set_strain_data_from_power_spectral_density(
+            sampling_frequency=self.sampling_frequency, duration=self.duration)
+        self.waveform_generator = bilby.gw.waveform_generator.WaveformGenerator(
+            duration=self.duration,
+            sampling_frequency=self.sampling_frequency,
+            frequency_domain_source_model=bilby.gw.source.lal_binary_black_hole,
+            waveform_arguments={
+                "waveform_approximant": "IMRPhenomXP"
+            })
+
+        self.parameters = {
+            'mass_1': 10,
+            'mass_2': 10,
+            'a_1': 0,
+            'a_2': 0,
+            'tilt_1': 0,
+            'tilt_2': 0,
+            'phi_12': 0,
+            'phi_jl': 0,
+            'theta_jn': 0,
+            'luminosity_distance': 40,
+            'phase': 0,
+            'ra': 0,
+            'dec': 0,
+            'geocent_time': 62,
+            'psi': 0
+        }
+
+    def tearDown(self):
+        del self.ifo
+        del self.waveform_generator
+        del self.parameters
+        del self.duration
+        del self.sampling_frequency
+
+    def _check_frequency_series_whiteness(self, frequency_series):
+        std_real = np.std(frequency_series.real)
+        std_imag = np.std(frequency_series.imag)
+        self.assertAlmostEqual(std_real, 1, places=2)
+        self.assertAlmostEqual(std_imag, 1, places=2)
+
+    def _check_time_series_whiteness(self, time_series):
+        std = np.std(time_series)
+        self.assertAlmostEqual(std, 1, places=2)
+
+    def test_frequency_domain_whitened_strain(self):
+        mask = self.ifo.frequency_mask
+        white = self.ifo.whitened_frequency_domain_strain[mask]
+        self._check_frequency_series_whiteness(white)
+
+    def test_time_domain_whitened_strain(self):
+        whitened_td = self.ifo.whitened_time_domain_strain
+        self._check_time_series_whiteness(whitened_td)
+
+    def test_frequency_domain_noise_and_signal_whitening(self):
+        # Inject some (loud) signal
+        self.ifo.inject_signal(waveform_generator=self.waveform_generator, parameters=self.parameters)
+        # Make the template separately
+        waveform_polarizations = self.waveform_generator.frequency_domain_strain(parameters=self.parameters)
+        signal_ifo = self.ifo.get_detector_response(
+            waveform_polarizations=waveform_polarizations,
+            parameters=self.parameters
+        )
+        # Whiten the template
+        whitened_signal_ifo = self.ifo.whiten_frequency_series(signal_ifo)
+        mask = self.ifo.frequency_mask
+        white = self.ifo.whitened_frequency_domain_strain[mask] - whitened_signal_ifo[mask]
+        self._check_frequency_series_whiteness(white)
+
+    def test_time_domain_noise_and_signal_whitening(self):
+        # Inject some (loud) signal
+        self.ifo.inject_signal(waveform_generator=self.waveform_generator, parameters=self.parameters)
+        # Make the template separately
+        waveform_polarizations = self.waveform_generator.frequency_domain_strain(parameters=self.parameters)
+        signal_ifo = self.ifo.get_detector_response(
+            waveform_polarizations=waveform_polarizations,
+            parameters=self.parameters
+        )
+        # Whiten the template in FD
+        whitened_signal_ifo_fd = self.ifo.whiten_frequency_series(signal_ifo)
+        # Get whitened template in TD
+        whitened_signal_ifo_td = self.ifo.get_whitened_time_series_from_whitened_frequency_series(
+            whitened_signal_ifo_fd
+        )
+        whitened_td = self.ifo.whitened_time_domain_strain - whitened_signal_ifo_td
+        self._check_time_series_whiteness(whitened_td)

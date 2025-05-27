@@ -1,8 +1,9 @@
 import unittest
+from unittest import mock
+
 import bilby
+import lalsimulation
 import numpy as np
-import mock
-from mock import MagicMock
 
 
 def dummy_func_array_return_value(
@@ -160,6 +161,69 @@ class TestWaveformArgumentsSetting(unittest.TestCase):
         )
 
 
+class TestLALCBCWaveformArgumentsSetting(unittest.TestCase):
+    def setUp(self):
+        self.kwargs = dict(
+            duration=4,
+            frequency_domain_source_model=bilby.gw.source.lal_binary_black_hole,
+            sampling_frequency=2048,
+        )
+
+    def tearDown(self):
+        del self.kwargs
+
+    def test_spin_reference_enumeration(self):
+        """
+        Verify that the value of the reference enumerator hasn't changed by comparing
+        against a known approximant.
+        """
+        self.assertEqual(
+            lalsimulation.SimInspiralGetSpinFreqFromApproximant(lalsimulation.SEOBNRv3),
+            bilby.gw.waveform_generator.LALCBCWaveformGenerator.LAL_SIM_INSPIRAL_SPINS_FLOW,
+        )
+
+    def test_create_waveform_generator_non_precessing(self):
+        self.kwargs["waveform_arguments"] = dict(
+            minimum_frequency=20.0,
+            reference_frequency=50.0,
+            waveform_approximant="TaylorF2",
+        )
+        wfg = bilby.gw.waveform_generator.LALCBCWaveformGenerator(**self.kwargs)
+        self.assertDictEqual(
+            wfg.waveform_arguments,
+            dict(
+                minimum_frequency=20.0,
+                reference_frequency=50.0,
+                waveform_approximant="TaylorF2",
+            ),
+        )
+
+    def test_create_waveform_generator_eob_succeeds(self):
+        self.kwargs["waveform_arguments"] = dict(
+            minimum_frequency=20.0,
+            reference_frequency=20.0,
+            waveform_approximant="SEOBNRv3",
+        )
+        wfg = bilby.gw.waveform_generator.LALCBCWaveformGenerator(**self.kwargs)
+        self.assertDictEqual(
+            wfg.waveform_arguments,
+            dict(
+                minimum_frequency=20.0,
+                reference_frequency=20.0,
+                waveform_approximant="SEOBNRv3",
+            ),
+        )
+
+    def test_create_waveform_generator_eob_fails(self):
+        self.kwargs["waveform_arguments"] = dict(
+            minimum_frequency=20.0,
+            reference_frequency=50.0,
+            waveform_approximant="SEOBNRv3",
+        )
+        with self.assertRaises(ValueError):
+            _ = bilby.gw.waveform_generator.LALCBCWaveformGenerator(**self.kwargs)
+
+
 class TestSetters(unittest.TestCase):
     def setUp(self):
         self.waveform_generator = bilby.gw.waveform_generator.WaveformGenerator(
@@ -259,7 +323,7 @@ class TestFrequencyDomainStrainMethod(unittest.TestCase):
         del self.simulation_parameters
 
     def test_parameter_conversion_is_called(self):
-        self.waveform_generator.parameter_conversion = MagicMock(
+        self.waveform_generator.parameter_conversion = mock.MagicMock(
             side_effect=KeyError("test")
         )
         with self.assertRaises(KeyError):
@@ -328,7 +392,7 @@ class TestFrequencyDomainStrainMethod(unittest.TestCase):
             )
 
     def test_key_popping(self):
-        self.waveform_generator.parameter_conversion = MagicMock(
+        self.waveform_generator.parameter_conversion = mock.MagicMock(
             return_value=(
                 dict(
                     amplitude=1e-21,
@@ -374,42 +438,42 @@ class TestFrequencyDomainStrainMethod(unittest.TestCase):
     def test_frequency_domain_caching_and_using_time_domain_strain_without_parameters(
         self,
     ):
-        original_waveform = self.waveform_generator.frequency_domain_strain(
-            parameters=self.simulation_parameters
-        )
-        new_waveform = self.waveform_generator.time_domain_strain()
-        self.assertNotEqual(original_waveform, new_waveform)
+        self.assertFalse(_test_caching_different_domain(
+            self.waveform_generator.frequency_domain_strain,
+            self.waveform_generator.time_domain_strain,
+            self.simulation_parameters,
+            None,
+        ))
 
     def test_frequency_domain_caching_and_using_time_domain_strain_with_parameters(
         self,
     ):
-        original_waveform = self.waveform_generator.frequency_domain_strain(
-            parameters=self.simulation_parameters
-        )
-        new_waveform = self.waveform_generator.time_domain_strain(
-            parameters=self.simulation_parameters
-        )
-        self.assertNotEqual(original_waveform, new_waveform)
+        self.assertFalse(_test_caching_different_domain(
+            self.waveform_generator.frequency_domain_strain,
+            self.waveform_generator.time_domain_strain,
+            self.simulation_parameters,
+            self.simulation_parameters,
+        ))
 
     def test_time_domain_caching_and_using_frequency_domain_strain_without_parameters(
         self,
     ):
-        original_waveform = self.waveform_generator.time_domain_strain(
-            parameters=self.simulation_parameters
-        )
-        new_waveform = self.waveform_generator.frequency_domain_strain()
-        self.assertNotEqual(original_waveform, new_waveform)
+        self.assertFalse(_test_caching_different_domain(
+            self.waveform_generator.time_domain_strain,
+            self.waveform_generator.frequency_domain_strain,
+            self.simulation_parameters,
+            None,
+        ))
 
     def test_time_domain_caching_and_using_frequency_domain_strain_with_parameters(
         self,
     ):
-        original_waveform = self.waveform_generator.time_domain_strain(
-            parameters=self.simulation_parameters
-        )
-        new_waveform = self.waveform_generator.frequency_domain_strain(
-            parameters=self.simulation_parameters
-        )
-        self.assertNotEqual(original_waveform, new_waveform)
+        self.assertFalse(_test_caching_different_domain(
+            self.waveform_generator.time_domain_strain,
+            self.waveform_generator.frequency_domain_strain,
+            self.simulation_parameters,
+            self.simulation_parameters,
+        ))
 
     def test_frequency_domain_caching_changing_model(self):
         original_waveform = self.waveform_generator.frequency_domain_strain(
@@ -465,7 +529,7 @@ class TestTimeDomainStrainMethod(unittest.TestCase):
         del self.simulation_parameters
 
     def test_parameter_conversion_is_called(self):
-        self.waveform_generator.parameter_conversion = MagicMock(
+        self.waveform_generator.parameter_conversion = mock.MagicMock(
             side_effect=KeyError("test")
         )
         with self.assertRaises(KeyError):
@@ -538,7 +602,7 @@ class TestTimeDomainStrainMethod(unittest.TestCase):
             )
 
     def test_key_popping(self):
-        self.waveform_generator.parameter_conversion = MagicMock(
+        self.waveform_generator.parameter_conversion = mock.MagicMock(
             return_value=(
                 dict(
                     amplitude=1e-2,
@@ -584,42 +648,51 @@ class TestTimeDomainStrainMethod(unittest.TestCase):
     def test_frequency_domain_caching_and_using_time_domain_strain_without_parameters(
         self,
     ):
-        original_waveform = self.waveform_generator.frequency_domain_strain(
-            parameters=self.simulation_parameters
-        )
-        new_waveform = self.waveform_generator.time_domain_strain()
-        self.assertNotEqual(original_waveform, new_waveform)
+        self.assertFalse(_test_caching_different_domain(
+            self.waveform_generator.frequency_domain_strain,
+            self.waveform_generator.time_domain_strain,
+            self.simulation_parameters,
+            None,
+        ))
 
     def test_frequency_domain_caching_and_using_time_domain_strain_with_parameters(
         self,
     ):
-        original_waveform = self.waveform_generator.frequency_domain_strain(
-            parameters=self.simulation_parameters
-        )
-        new_waveform = self.waveform_generator.time_domain_strain(
-            parameters=self.simulation_parameters
-        )
-        self.assertNotEqual(original_waveform, new_waveform)
+        self.assertFalse(_test_caching_different_domain(
+            self.waveform_generator.frequency_domain_strain,
+            self.waveform_generator.time_domain_strain,
+            self.simulation_parameters,
+            self.simulation_parameters,
+        ))
 
     def test_time_domain_caching_and_using_frequency_domain_strain_without_parameters(
         self,
     ):
-        original_waveform = self.waveform_generator.time_domain_strain(
-            parameters=self.simulation_parameters
-        )
-        new_waveform = self.waveform_generator.frequency_domain_strain()
-        self.assertNotEqual(original_waveform, new_waveform)
+        self.assertFalse(_test_caching_different_domain(
+            self.waveform_generator.time_domain_strain,
+            self.waveform_generator.frequency_domain_strain,
+            self.simulation_parameters,
+            None,
+        ))
 
     def test_time_domain_caching_and_using_frequency_domain_strain_with_parameters(
         self,
     ):
-        original_waveform = self.waveform_generator.time_domain_strain(
-            parameters=self.simulation_parameters
-        )
-        new_waveform = self.waveform_generator.frequency_domain_strain(
-            parameters=self.simulation_parameters
-        )
-        self.assertNotEqual(original_waveform, new_waveform)
+        self.assertFalse(_test_caching_different_domain(
+            self.waveform_generator.time_domain_strain,
+            self.waveform_generator.frequency_domain_strain,
+            self.simulation_parameters,
+            self.simulation_parameters,
+        ))
+
+
+def _test_caching_different_domain(func1, func2, params1, params2):
+    original_waveform = func1(parameters=params1)
+    new_waveform = func2(parameters=params2)
+    output = True
+    for key in original_waveform:
+        output &= np.array_equal(original_waveform[key], new_waveform[key])
+    return output
 
 
 if __name__ == "__main__":

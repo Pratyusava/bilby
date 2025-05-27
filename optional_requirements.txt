@@ -1,9 +1,4 @@
-astropy
-lalsuite
-gwpy
-theano
+celerite
+george
 plotly
-tables
-pyfftw
-scikit-learn
-nflows
+pytest-requires
